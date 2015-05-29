@@ -1,5 +1,8 @@
-/* O programa cliente envia processos atraves do pipe partilhado criado pela cloudshell 
- * para a CloudShell e espera pelo resultado da operação */
+/* O programa cliente envia pedidos através do pipe com nome criado pela cloudshell 
+ * para a CloudShell e espera pelo resultado da operação.
+ * A CloudShell já deverá estar a correr para o cliente funcionar, caso contrário
+ * nºao conseguirá abrir os pipes de pedidos e respostas.
+ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -11,61 +14,35 @@
 #include <signal.h>
 #include "readln.h"
 
-void sigcont_handler (int sig);
-
-#define LINE 128
+#define LINE 128    /* Tamanho máximo da linha */
 
 int main (int argc, char ** argv) {
-  char * buff;      /* Para guardar o input */
-  char * pid;       /* Para guardar o pid do processo */
+  char * request;   /* Para guardar o pedido do cliente */
   char * response;  /* Para guardar a respota da CloudShell */
-  char * spid;      /* Para guardar o pid da CloudShell */
-  int fd;           /* Descritor para o pipe anonimo */
+  int req_p;        /* Descritor para o pipe de pedidos */
+  int rsp_p;        /* Descritor para o pipe de respostas */
   int nbytes;       /* Num. de bytes lidos no read */
 
-  signal(SIGCONT, sigcont_handler);
+  req_p = open("/tmp/csR", O_RDWR); /* Abrir pipe para pedidos */
+  rsp_p = open("/tmp/csA", O_RDWR); /* Abrir pipe para respostas */
 
-  /* Abrir o pipe partilhado para leitura e escrita */
-  fd = open("/tmp/cshell", O_RDWR);
-
-  /* Falha ao abrir o pipe */
-  if (fd == -1) {
+  /* Verificar se houve falhas ao abrir os pipes */ 
+  if ((req_p == -1) || (rsp_p == -1)) {
     printf("Não foi possivel ligar ao servidor.\n");
     return -1;
   }
 
   /* Alocar espaço para as strings */
-  buff = (char *) malloc(sizeof(char) * LINE);
-  pid = (char *) malloc(sizeof(char) * LINE);
-  response = (char *) malloc(sizeof(char) * LINE);
-  spid = (char *) malloc(sizeof(char) * LINE);
-
-  /* Guardar o pid do cliente como string */
-  sprintf(pid, "%d\n", getpid());
-
-  /* Ler o input do std input até encontrar end-of-file */
+  request   = (char *) malloc(sizeof(char) * LINE);
+  response  = (char *) malloc(sizeof(char) * LINE);
+  
+  /* Ler o uma linha do std input */
   while (1) {
-    nbytes = read(0, buff, LINE);     /* Ler o comando */
-    write(fd, pid, strlen(pid));  /* Enviar o pid */
-    write(fd, buff, nbytes);          /* Enviar o comando */
+    nbytes = readln(0, request, LINE);      /* Ler o comando */
+    write(req_p, request, nbytes);          /* Enviar o comando */
 
-    /* Esperar pelo sinal de que a resposta está pronta */
-    pause();
-    nbytes = read(fd, spid, LINE);
-    spid[nbytes - 1] = '\0';
-    kill(atoi(spid), SIGCONT);
-
-    /* Adicionar codigo que coloca o cliente em pausa espera pelo envio do sinal 
-     * SIGALRM do pai para ler o resultado de correr o processo que este cliente
-     * pediu para correr */
+    nbytes = readln(rsp_p, response, LINE);  /* Esperar por resposta da cloudshell */
+    write(1, response, nbytes);             /* Imprimir a resposta no std out */
   }
-
-  close(fd);
-  unlink("/tmp/cshell");
-
   return 0;
-}
-
-void sigcont_handler (int sig) {
-  printf("Resposta recebida!\n");
 }

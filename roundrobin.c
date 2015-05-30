@@ -10,8 +10,17 @@ int counter;
 int i;
 pid_t fpids[1024];  /* Array de pids */
 
-void handle_sigchld(int sig) {
-  while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {}
+void sigchld_handler (int signo) {
+	pid_t res;
+	int status;
+	while((res = waitpid(-1, &status, WNOHANG))>0) {
+		if(WIFEXITED(status)) {
+			printf("o processo %d terminou normalmente (%d)\n", res, WEXITSTATUS(status) );	
+		}
+		else {
+			printf("O processo %d não terminou normalmente\n",res);
+		}
+	}
 }
 
 void sigalrm_handler (int sig) {
@@ -30,7 +39,9 @@ void roundRobin (int argc, char ** argv) {
   children = argc - 1;
   pid_t pid = 1;
 
+  //signal(SIGCHLD, sigchld_handler);  ***Not working with SIGCHLD***
   signal(SIGALRM, sigalrm_handler);
+  signal(SIGCHLD, sigchld_handler);
 
   for (i = 0; (i < children) && pid; i++) {
     pid = fork();
@@ -39,6 +50,7 @@ void roundRobin (int argc, char ** argv) {
     } else {
       kill(getpid(), SIGSTOP);
       execlp(argv[i+1], argv[i+1], NULL);
+      signal(SIGCHLD, sigchld_handler);
     }
   }
 

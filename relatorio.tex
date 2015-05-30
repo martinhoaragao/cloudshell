@@ -1,0 +1,36 @@
+\documentclass[a4paper]{report}
+\usepackage[portuguese]{babel}
+\usepackage[utf8]{inputenc} 
+\usepackage{graphics}
+
+\title{Relatório\\ Sistemas Operativos\\
+		Licenciatura em Engenharia Informática}
+\author{Adelino Costa A70563 \\ Bruno Azevedo A70500 \\ Luis Martinho Silva A72205}
+\date{Maio de 2015}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\chapter{Introdução}
+\label{sec:intro}
+Neste projecto foi nos proposto a implementação em C de uma Cloudshell com a qual fosse possivel interagir. Esta Cloudshell iria executar os pedidos indicados pelo utilizador e fazer a monitorização dos recursos gastos indo descontado o saldo do respetivo utilizador. Quando o saldo se esgota a Cloudshell deverá terminar todos os pedidos ainda em execução.
+\chapter{Desenvolvimento}
+\label{sec:desen}
+\section{CloudShell}
+Comecemos a falar sobre a CloudShell, ela cria um pipe com nome que permite a comunicação com o utilizador, sendo que essa comunicação, no que toca à Cloudshell, é so de leitura. É suposta que a CloudShell monitorize o consumo do utilizador, para isso é criado um filho, que iremos chamar de Monitorização, que trata dessa parte, este filho de Monitorização, a cada segundo, escreve num ficheiro à parte o saldo do utilizador.\\
+A CloudShell também deve executar os pedidos feitos pelo utilizador, para isso é criado um outro filho, Gestor de Processos, que executa os pedidos do utilizador. A CloudShell comtêm também uma estrutura que armazena o pid do utilizador e os pedidos deste que já foram executados. 
+\subsection{Monitorização}
+%Para se falar sobre a Monitorização do Saldo
+\subsection{Gestor de Processos}
+%Para se falar sobre a execução dos pedidos do utilizador
+O Gestor de Processos, é o \underline{filho} da CloudShell responsável pela execução dos pedidos feitos pelo utilizador, é também o responsável pela comunicação do resultado da execução desses pedidos ao utilizador.\\
+O Gestor de Processos, recebe através de uma tabela de descritores partilhada com o pai, a CloudShell, os pedidos do utilizador, criando o próprio Gestor um filho. Este filho do Gestor vai executar os pedidos do utilizador ao "estilo" Round Robin, onde de um em um segundo vai ser executado um pedido, este também é responsável pela comunicação do resultado do pedido ao utilizador, para isso existe um pipe com nome que liga este filho do Gestor ao utilizador e sempre que é executado um pedido o filho envia-o para esse pipe.\\
+O Gestor de Processos sempre que o seu filho executa um pedido vai actualizar na estrutura de monitorização, presente na CloudShell, o pedido  executado pelo filho.
+
+\section{Utilizador}
+%Para se falar sobre o utilizador (Cliente)
+
+\chapter{Conclusão}
+...
+\end{document}

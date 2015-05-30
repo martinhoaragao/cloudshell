@@ -16,12 +16,23 @@
 
 #define LINE 128    /* Tamanho máximo da linha */
 
+char * response;    /* Para guardar a resposta da CloudShell */
+int rsp_p;          /* Descritor para o pipe de respostas */
+int nbytes;         /* Número de bytes lidos no read */
+
+/* Função que vai tratar de ler a resposta enviada pelos processos,
+ * isto permite que o cliente não bloqueie à espera de respostas
+ * e consiga enviar mais pedidos enquanto os outros executam */
+void sigcont_handler (int sig) {
+  while ((nbytes = readln(rsp_p, response, LINE)) > 0)
+    write(1, response,nbytes);
+}
+
 int main (int argc, char ** argv) {
   char * request;   /* Para guardar o pedido do cliente */
-  char * response;  /* Para guardar a respota da CloudShell */
   int req_p;        /* Descritor para o pipe de pedidos */
-  int rsp_p;        /* Descritor para o pipe de respostas */
-  int nbytes;       /* Num. de bytes lidos no read */
+
+  signal(SIGCONT, sigcont_handler); /* Mudar função executada quando recebido SIGCONT */
 
   req_p = open("/tmp/csR", O_RDWR); /* Abrir pipe para pedidos */
   rsp_p = open("/tmp/csA", O_RDWR); /* Abrir pipe para respostas */

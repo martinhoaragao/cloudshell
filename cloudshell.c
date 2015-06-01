@@ -42,7 +42,8 @@ int main (int argc, char ** argv) {
   char * cpid;        /* String com o PID do cliente */
   char * token;       /* Auxiliar para separar argumentos */
   char * m_ans;       /* Para guardar a resposta da monitorização */
-  int nbytes;         /* Numero de bytes lidos no read */
+  int nbytes_1;       /* Numero de bytes lidos no read */
+  int nbytes_2;
   int i;              /* Iterador auxiliar */
   int req_p;          /* Pipe para ler pedidos do cliente */
 
@@ -112,22 +113,22 @@ int main (int argc, char ** argv) {
   m_a   = open("/tmp/m_a", O_RDONLY | O_NONBLOCK);
 
   /* Ler o pid do cliente */
-  nbytes = read(req_p, cpid, LINE);
+  nbytes_1 = read(req_p, cpid, LINE);
   *c_pid = atoi(cpid);
   printf("%d\n", *c_pid);
 
   /* Começar a leitura de argumentos */
   alarm(1);
   while (1) {
-    nbytes = readln(req_p, req, LINE);    /* Ler pedido do cliente */
+    nbytes_1 = readln(req_p, req, LINE);    /* Ler pedido do cliente */
     write(m_r, cpid, strlen(cpid));
-    nbytes = readln(m_a, m_ans, LINE);
+    nbytes_2 = readln(m_a, m_ans, LINE);
     if (strcmp(m_ans, "OK\n") == 0)
-      write(proc_p[1], req, nbytes);
+      write(proc_p[1], req, nbytes_1);
     else if (strcmp(m_ans, "KO\n") == 0)
       write(proc_p[1], "terminate\n", strlen("terminate\n"));
     else
-      write(proc_p[1], req, nbytes);
+      write(proc_p[1], req, nbytes_1);
   }
 
   return 0;

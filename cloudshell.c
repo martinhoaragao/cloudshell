@@ -111,8 +111,6 @@ int main (int argc, char ** argv) {
   /* Ler o pid do cliente */
   nbytes_1 = read(req_p, cpid, LINE);
   *c_pid = atoi(cpid);
-  printf("%d\n", *c_pid);
-
   /* Começar a leitura de argumentos */
   alarm(1);
   while (1) {
@@ -159,11 +157,11 @@ void terminate () { /* Terminar todos os processos criados pelo cliente */
 }
 
 void gestProcs () {
-  int i;            /* Iterador Auxiliar */
-  int resp;         /* Descritor para respostas */
-  char * args[16];  /* Argumentos */
-  char * req;       /* Pedido do cliente */
-  pid_t cpid;       /* PID do filho criado */
+  int i;              /* Iterador Auxiliar */
+  int resp;           /* Descritor para respostas */
+  char * args[16];    /* Argumentos */
+  char * req;         /* Pedido do cliente */
+  pid_t cpid;         /* PID do filho criado */
   char * temp;
 
   signal(SIGCHLD, sigchld_handler);
@@ -179,8 +177,12 @@ void gestProcs () {
     if (strcmp(req, "terminate\n") == 0)  /* Matar todos os processos */
       terminate();
 
-    args[i] = strtok(req, " \n");
-    while (args[i]) args[++i] = strtok(NULL, " \n");
+    temp = strtok(req, " \n");
+    while (temp != NULL) {
+      args[i++] = temp;
+      temp = strtok(NULL, " \n");
+    }
+    args[i] = temp;
 
     if ((cpid = fork()) == 0) { /* Filho para correr o comando */
       kill(getpid(), SIGSTOP);  /* Filho para-se a si mesmo */
@@ -192,7 +194,6 @@ void gestProcs () {
       (*active)++;
       /* Inserir pid do filho no array */
       for (i = 0; procs[i] != 0; i++) ;
-      printf("<< %d - %d\n", i, cpid);
       procs[i]    = cpid; 
       cpu[i]      = 0.0;
     }

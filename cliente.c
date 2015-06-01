@@ -51,7 +51,6 @@ int main (int argc, char ** argv) {
   pid       = (char *) malloc(sizeof(char) * LINE);
   
   sprintf(pid, "%d\n", getpid());
-  printf("%s", pid);
   write(req_p, pid, strlen(pid));
   /* Ler o uma linha do std input */
   while (1) {

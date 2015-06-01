@@ -32,7 +32,6 @@ int * actual;     /* Indice do processo actual */
 int * c_pid;      /* PID do cliente */
 int shmid;
 pid_t * procs;    /* Array dos processos a correr */
-clock_t * clocks; /* Array com timestamps dos processos */ 
 double * cpu;     /* Array com a utilização de CPU de cada processo */
 int m_r, m_a;     /* Descritores para comunicação com a monitorização */
 pid_t m_pid;      /* PID da monitorização */
@@ -66,9 +65,6 @@ int main (int argc, char ** argv) {
   /* Preparar o PID do cliente */
   shmid = shmget(IPC_PRIVATE, sizeof(int), SHM_W | SHM_R | IPC_CREAT );
   c_pid  = (int *) shmat(shmid, NULL, 0);
-  /* Prepara o array de timestamps */
-  shmid = shmget(IPC_PRIVATE, sizeof(clock_t), SHM_W | SHM_R | IPC_CREAT );
-  clocks = (clock_t *) shmat(shmid, NULL, 0);
   /* Prepara o array de CPU */
   shmid = shmget(IPC_PRIVATE, sizeof(double), SHM_W | SHM_R | IPC_CREAT );
   cpu = (double *) shmat(shmid, NULL, 0);
@@ -198,7 +194,6 @@ void gestProcs () {
       for (i = 0; procs[i] != 0; i++) ;
       printf("<< %d - %d\n", i, cpid);
       procs[i]    = cpid; 
-      clocks[i]   = clock();  /* Timestamp de criação do processo */  
       cpu[i]      = 0.0;
     }
   }
@@ -214,7 +209,6 @@ void sigchld_handler (int sig) {
       for (i = 0; procs[i] && (procs[i] != pid); i++) ;
       for (j = i; j < *active; j++) {
         procs[j]  = procs[j+1];
-        clocks[j] = clocks[j+1];
         cpu[j]    = cpu[j+1];
       }
       (*active)--;
@@ -276,9 +270,7 @@ void updateStats (int sig) {
   char cpu_total[100];
   char commnd[100];
   FILE *fp;
-  clock_t now;
   double time_interval;
-  clock_t start;
   int process;
   int i;                /* Iterador */
 
@@ -296,11 +288,8 @@ void updateStats (int sig) {
     }
     pclose(fp);
 
-    now = clock();
-    start = clocks[i];
-    time_interval = ((double)now-start)/CLOCKS_PER_SEC;
     cpu[i] += atof(cpu_total);
-    credit_now =  credit_max - ((cpu[i]) * time_interval); /* Used 50% cpu across 10 minutes, that's 500 credits. Same as 500% cpu in 1 minute. So Credits are cpu/min */
+    credit_now =  credit_max - (cpu[i]); 
   }
   alarm(1);
 }

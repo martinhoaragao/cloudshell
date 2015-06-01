@@ -58,9 +58,6 @@ int main (int argc, char ** argv) {
     write(1, "CShell$ ", strlen("CShell$ "));
     nbytes = readln(0, request, LINE);      /* Ler o comando */
     write(req_p, request, nbytes);          /* Enviar o comando */
-
-    // nbytes = readln(rsp_p, response, LINE);  /* Esperar por resposta da cloudshell */
-    // write(1, response, nbytes);             /* Imprimir a resposta no std out */
   }
   return 0;
 }

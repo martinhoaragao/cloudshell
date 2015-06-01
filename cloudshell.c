@@ -124,6 +124,10 @@ int main (int argc, char ** argv) {
     nbytes = readln(m_a, m_ans, LINE);
     if (strcmp(m_ans, "OK\n") == 0)
       write(proc_p[1], req, nbytes);
+    else if (strcmp(m_ans, "KO\n") == 0)
+      write(proc_p[1], "terminate\n", strlen("terminate\n"));
+    else
+      write(proc_p[1], req, nbytes);
   }
 
   return 0;
@@ -149,12 +153,21 @@ void sigalrm_handler (int sig) {
 
 ///////////////////////////////  GESTOR DE PROCESSOS   ///////////////////////////////////
 
+void terminate () { /* Terminar todos os processos criados pelo cliente */
+  int i;
+  for (i = 0; i < *active; i++)
+    kill(procs[i], SIGKILL);
+  *active = 0;
+  exit(0);
+}
+
 void gestProcs () {
   int i;            /* Iterador Auxiliar */
   int resp;         /* Descritor para respostas */
   char * args[16];  /* Argumentos */
   char * req;       /* Pedido do cliente */
   pid_t cpid;       /* PID do filho criado */
+  char * temp;
 
   signal(SIGCHLD, sigchld_handler);
 
@@ -166,10 +179,11 @@ void gestProcs () {
     i = 0;
     read(proc_p[0], req, LINE);
 
+    if (strcmp(req, "terminate\n") == 0)  /* Matar todos os processos */
+      terminate();
+
     args[i] = strtok(req, " \n");
-    while (args[i]) {
-      args[++i] = strtok(NULL, " \n");
-    }
+    while (args[i]) args[++i] = strtok(NULL, " \n");
 
     if ((cpid = fork()) == 0) { /* Filho para correr o comando */
       kill(getpid(), SIGSTOP);  /* Filho para-se a si mesmo */
@@ -239,9 +253,9 @@ void monitor () {
   int reqs, ans;    /* Descritores de pedidos e respostas */
   char * m_request; /* Para guardar a string do pedido */
   int nbytes;
+  char c;
   signal(SIGALRM, updateStats);
-  credit_max = 50;
-  credit_now = 0;
+  credit_max = 20.0;
 
   reqs      = open("/tmp/m_r", O_RDONLY);
   ans       = open("/tmp/m_a", O_WRONLY);
@@ -250,7 +264,10 @@ void monitor () {
   alarm(1);
   while (1) {
     nbytes = read(reqs, m_request, LINE);
-    write(ans, "OK\n", strlen("OK\n"));
+    if (credit_now < 0.0)
+      write(ans, "KO\n", strlen("KO\n"));
+    else
+      write(ans, "OK\n", strlen("OK\n"));
   }
 }
 
@@ -260,17 +277,15 @@ void updateStats (int sig) {
   FILE *fp;
   clock_t now;
   double time_interval;
-  int index = *actual;
   clock_t start;
   int process;
+  int i;                /* Iterador */
 
-  while (index != *actual) {
-    if (index > *active) index = 0;
-    process = (int) procs[*actual];
+  for (i = 0; i < *active; i++) {
+    process = (int) procs[i];
     /* Build command to obtain CPU usage */
     strcpy (commnd, "pidstat -hu -p ");
-    sprintf(commnd, "%s %d", commnd, procs[*actual]);
-    strncat(commnd, " | awk 'NR==4 {print $7}'", 100);
+    sprintf(commnd, "%s %d | awk 'NR==4 {print $7}'", commnd, procs[i]);
     
     fp = popen(commnd, "r");
     if (fp == 0)
@@ -279,14 +294,13 @@ void updateStats (int sig) {
       while (fgets(cpu_total, 100, fp) != 0);
     }
     pclose(fp);
-    printf("%s", cpu_total);
 
     now = clock();
-    start = clocks[index];
+    start = clocks[i];
     time_interval = ((double)now-start)/CLOCKS_PER_SEC;
-    cpu[index] += atof(cpu_total);
-    credit_now =  credit_max - ((cpu[index]) * time_interval); /* Used 50% cpu across 10 minutes, that's 500 credits. Same as 500% cpu in 1 minute. So Credits are cpu/min */
+    cpu[i] += atof(cpu_total);
+    credit_now =  credit_max - ((cpu[i]) * time_interval); /* Used 50% cpu across 10 minutes, that's 500 credits. Same as 500% cpu in 1 minute. So Credits are cpu/min */
   }
-  printf("CREDIT: %f\n", credit_now);
   alarm(1);
 }
+

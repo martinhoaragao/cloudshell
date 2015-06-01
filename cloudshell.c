@@ -27,11 +27,12 @@ pid_t rr_pid;     /* PID do processo que executa roundRobin */
 pid_t * procs;    /* Array dos processos a correr */
 int * active;     /* Número de processos activos */
 int * actual;     /* Indice do processo actual */
+int * c_pid;      /* PID do cliente */
 int shmid;
 
 int main (int argc, char ** argv) {
   char * req;         /* Pedido do cliente */
-  char * cpid;        /* Process id do cliente */
+  char * cpid;        /* String com o PID do cliente */
   char * token;       /* Auxiliar para separar argumentos */
   int nbytes;         /* Numero de bytes lidos no read */
   int i;              /* Iterador auxiliar */
@@ -39,7 +40,7 @@ int main (int argc, char ** argv) {
 
   /* Mudar função de resposta a sinais */
   signal(SIGALRM, sigalrm_handler);
-  
+
   /* Alocar memoria para as strings */
   req   = (char *) malloc(sizeof(char) * LINE);
   cpid  = (char *) malloc(sizeof(char) * LINE);
@@ -53,6 +54,9 @@ int main (int argc, char ** argv) {
   /* Preparar o indice do processo actual */
   shmid = shmget(IPC_PRIVATE, sizeof(int), SHM_W | SHM_R | IPC_CREAT );
   actual = (int *) shmat(shmid, NULL, 0);
+  /* Preparar o PID do cliente */
+  shmid = shmget(IPC_PRIVATE, sizeof(int), SHM_W | SHM_R | IPC_CREAT );
+  c_pid  = (int *) shmat(shmid, NULL, 0);
 
   /* Criar processo que vai gerir recursos */
   pipe(proc_p);
@@ -72,10 +76,19 @@ int main (int argc, char ** argv) {
     exit(-1);
   }
 
-  /* Criar pipes para ler pedidos do cliente */
+  /* Criar pipe para ler pedidos do cliente */
   mkfifo("/tmp/csR", 0666);
   req_p = open("/tmp/csR", O_RDONLY);
+  /* Criar pipe para escrever respostas para o cliente */ 
+  mkfifo("/tmp/csA", 0666);
+  nbytes = open("/tmp/csA", O_RDWR);
+  close(nbytes);
 
+  /* Ler o pid do cliente */
+  nbytes = read(req_p, cpid, LINE);
+  *c_pid = atoi(cpid);
+
+  /* Começar a leitura de argumentos */
   alarm(1);
   while (1) {
     nbytes = readln(req_p, req, LINE);    /* Ler pedido do cliente */
@@ -87,10 +100,10 @@ int main (int argc, char ** argv) {
 
 /* Função que verifica se os gestores estão todos a correr e caso algum
  * não esteja, a CloudShell volta a cria-lo */
- void sigalrm_handler (int sig) {
+void sigalrm_handler (int sig) {
   int status;   /* Guardar o estado do filho */
   pid_t aux;    /* PID Auxiliar */
- 
+
   if ((aux = waitpid(proc_pid, &status, WNOHANG)) == proc_pid)
     if ((proc_pid = fork()) == 0) { gestProcs(); exit(0); }
 
@@ -98,12 +111,13 @@ int main (int argc, char ** argv) {
     if ((rr_pid = fork()) == 0) { roundRobin(); exit(0); }
 
   alarm(1);
- }
+}
 
-/* ------------------------------------------ GESTOR DE PROCESSOS ---------------------------*/
+///////////////////////////////  GESTOR DE PROCESSOS   ///////////////////////////////////
 
 void gestProcs () {
   int i;            /* Iterador Auxiliar */
+  int resp;         /* Descritor para respostas */
   char * args[16];  /* Argumentos */
   char * req;       /* Pedido do cliente */
   pid_t cpid;       /* PID do filho criado */
@@ -125,6 +139,8 @@ void gestProcs () {
 
     if ((cpid = fork()) == 0) { /* Filho para correr o comando */
       kill(getpid(), SIGSTOP);  /* Filho para-se a si mesmo */
+      resp = open("/tmp/csA", O_WRONLY);
+      dup2(resp, 1); close(resp);
       execvp(args[0], args);
       exit(0);
     } else {
@@ -147,16 +163,17 @@ void sigchld_handler (int sig) {
       for (i = 0; procs[i] && (procs[i] != pid); i++) ;
       for (j = i; j < *active; j++) procs[j] = procs[j+1]; 
       (*active)--;
+      kill(*c_pid, SIGCONT);
     }
   }
 }
 
-/*---------------------------------- ROUND ROBIN -----------------------------*/
+//////////////////////////////   ROUND ROBIN   ///////////////////////////////////////////
 
 void roundRobin () {
   signal(SIGALRM, switchProcs);
   *actual = 0;
-  
+
   alarm(1);
   while (1) {
     pause();
@@ -165,7 +182,6 @@ void roundRobin () {
 
 /* Aplica roundRobin aos processos que estão actualmente no array de processos */
 void switchProcs (int sig) {
-  printf("Switching procs: %d\n", *actual);
   if (*active > 0) {
     if (procs[*actual]) kill(procs[*actual], SIGSTOP);
     (*actual)++;

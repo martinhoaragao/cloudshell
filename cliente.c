@@ -1,7 +1,7 @@
 /* O programa cliente envia pedidos através do pipe com nome criado pela cloudshell 
  * para a CloudShell e espera pelo resultado da operação.
  * A CloudShell já deverá estar a correr para o cliente funcionar, caso contrário
- * nºao conseguirá abrir os pipes de pedidos e respostas.
+ * não conseguirá abrir os pipes de pedidos e respostas.
  */
 
 #include <sys/types.h>
@@ -35,7 +35,6 @@ int main (int argc, char ** argv) {
   signal(SIGCONT, sigcont_handler); /* Mudar função executada quando recebido SIGCONT */
 
   req_p = open("/tmp/csR", O_RDWR); /* Abrir pipe para pedidos */
-  rsp_p = open("/tmp/csA", O_RDWR); /* Abrir pipe para respostas */
 
   /* Verificar se houve falhas ao abrir os pipes */ 
   if ((req_p == -1) || (rsp_p == -1)) {
@@ -52,8 +51,8 @@ int main (int argc, char ** argv) {
     nbytes = readln(0, request, LINE);      /* Ler o comando */
     write(req_p, request, nbytes);          /* Enviar o comando */
 
-    nbytes = readln(rsp_p, response, LINE);  /* Esperar por resposta da cloudshell */
-    write(1, response, nbytes);             /* Imprimir a resposta no std out */
+    // nbytes = readln(rsp_p, response, LINE);  /* Esperar por resposta da cloudshell */
+    // write(1, response, nbytes);             /* Imprimir a resposta no std out */
   }
   return 0;
 }
